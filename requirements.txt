@@ -1,0 +1,8 @@
+streamlit
+pandas
+textblob
+plotly
+nltk
+pydub
+SpeechRecognition
+streamlit-mic-recorder
