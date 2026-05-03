@@ -1,13 +1,23 @@
+import os
+os.environ["PATH"] += os.pathsep + r"C:\ffmpeg\bin"
+
 import streamlit as st
 from textblob import TextBlob
 import plotly.graph_objects as go
-import tempfile
-import speech_recognition as sr
-from streamlit_mic_recorder import mic_recorder
 import time
-from pydub import AudioSegment
-import io
-# ---------------- LOGIN SYSTEM ----------------
+
+# OPTIONAL VOICE IMPORT (safe)
+try:
+    import speech_recognition as sr
+    from streamlit_mic_recorder import mic_recorder
+    from pydub import AudioSegment
+    import tempfile
+    import io
+    VOICE_AVAILABLE = True
+except:
+    VOICE_AVAILABLE = False
+
+# ---------------- LOGIN ----------------
 users = {
     "maam": "1234",
     "demo": "ai2026"
@@ -20,22 +30,23 @@ password = st.sidebar.text_input("Password", type="password")
 
 if username in users and users[username] == password:
     st.sidebar.success("Access Granted ✅")
-    access = True
 else:
     st.sidebar.warning("Login required")
-    access = False
-
-if not access:
     st.stop()
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(page_title="HireSense AI", page_icon="🎤", layout="wide")
+# ---------------- USER INPUTS (ADDED FIX) ----------------
+st.sidebar.title("👤 User Profile")
 
-# ---------------- ULTRA UI ----------------
+name = st.sidebar.text_input("Enter Your Name")
+interest = st.sidebar.text_input("Field of Interest (AI, Web Dev, Data Science etc.)")
+
+# ---------------- PAGE ----------------
+st.set_page_config(page_title="HireSense AI", layout="wide")
+
+# ---------------- UI ----------------
 st.markdown("""
 <style>
 
-/* BACKGROUND ANIMATION */
 .stApp {
     background: linear-gradient(-45deg, #0f172a, #1e1b4b, #0f766e, #020617);
     background-size: 400% 400%;
@@ -49,7 +60,6 @@ st.markdown("""
     100% {background-position: 0% 50%;}
 }
 
-/* HERO */
 .hero {
     text-align:center;
     padding:30px;
@@ -67,7 +77,6 @@ st.markdown("""
     100% {transform: translateY(0px);}
 }
 
-/* BUTTONS */
 .stButton>button {
     width: 100%;
     border-radius: 14px;
@@ -77,7 +86,6 @@ st.markdown("""
     color: white;
     font-weight: bold;
     border: none;
-    transition: 0.3s ease;
 }
 
 .stButton>button:hover {
@@ -85,164 +93,101 @@ st.markdown("""
     box-shadow: 0 0 20px rgba(0,255,255,0.4);
 }
 
-@keyframes btnGlow {
-    0% {background-position: 0%;}
-    50% {background-position: 100%;}
-    100% {background-position: 0%;}
-}
-
-/* INPUTS */
-textarea, input, select {
+textarea {
     border-radius: 12px !important;
     background: rgba(255,255,255,0.05) !important;
     color: white !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-}
-
-/* METRICS */
-[data-testid="stMetric"] {
-    background: rgba(255,255,255,0.06);
-    border-radius: 15px;
-    padding: 10px;
-}
-
-/* SIDEBAR */
-section[data-testid="stSidebar"] {
-    background: rgba(10,10,30,0.6);
-    backdrop-filter: blur(10px);
 }
 
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------- HEADER ----------------
-st.markdown("""
+st.markdown(f"""
 <div class="hero">
 <h1>🎤 HireSense AI</h1>
-<p>Personalized AI Interview Simulator</p>
+<p>AI Interview Simulator with Smart Feedback</p>
 </div>
+
+### 👋 Welcome {name if name else 'Candidate'}  
+🎯 Field of Interest: **{interest if interest else 'Not Provided'}**
 """, unsafe_allow_html=True)
 
-# ---------------- PROFILE ----------------
-st.sidebar.title("👤 Candidate Profile")
+# ---------------- ROLE ----------------
+role = st.selectbox("🎯 Select Role", [
+    "Data Scientist",
+    "Software Engineer",
+    "Web Developer",
+    "AI/ML Engineer",
+    "Fresher"
+])
 
-name = st.sidebar.text_input("Your Name")
-
-role = st.sidebar.selectbox(
-    "Target Role",
-    ["Data Scientist", "Software Engineer", "Web Developer", "AI/ML Engineer", "Fresher"]
-)
-
-experience = st.sidebar.selectbox(
-    "Experience Level",
-    ["Student", "Intern", "Fresher", "1-2 Years", "3+ Years"]
-)
-
-st.markdown(f"""
-### 👋 Welcome {name if name else 'Candidate'}  
-🎯 Role: **{role}**  
-📊 Experience: **{experience}**
-""")
-
-# ---------------- QUESTION BANK ----------------
-question_bank = {
-    "Data Scientist": [
-        "Explain a machine learning project you worked on",
-        "What is overfitting?",
-        "How do you clean data?",
-        "Correlation vs causation?"
-    ],
-    "Software Engineer": [
-        "Explain OOP concepts",
-        "What is time complexity?",
-        "Describe a project",
-        "Stack vs Queue?"
-    ],
-    "Web Developer": [
-        "What is REST API?",
-        "Frontend vs Backend?",
-        "How does browser work?",
-        "Explain HTML/CSS/JS"
-    ],
-    "AI/ML Engineer": [
-        "What is neural network?",
-        "Explain gradient descent",
-        "What are hyperparameters?",
-        "How does model training work?"
-    ],
-    "Fresher": [
-        "Tell me about yourself",
-        "Why should we hire you?",
-        "What are your strengths?",
-        "Where do you see yourself?"
-    ]
+questions = {
+    "Data Scientist": ["Explain ML project", "What is overfitting?"],
+    "Software Engineer": ["What is OOP?", "Time complexity?"],
+    "Web Developer": ["What is REST API?", "Frontend vs Backend?"],
+    "AI/ML Engineer": ["What is neural network?", "Gradient descent?"],
+    "Fresher": ["Tell me about yourself", "Why should we hire you?"]
 }
 
-questions = question_bank.get(role, [])
-question = st.selectbox("🎯 Interview Question", questions)
+question = st.selectbox("❓ Question", questions[role])
+st.info(question)
 
 # ---------------- VOICE INPUT ----------------
-st.subheader("🎙 Voice Input")
-
-audio = mic_recorder(start_prompt="Start Recording", stop_prompt="Stop Recording")
+st.subheader("🎙 Answer Input")
 
 response = ""
 
-if audio:
-    try:
-        audio_bytes = audio["bytes"]
+if VOICE_AVAILABLE:
+    audio = mic_recorder(
+        start_prompt="🎤 Start Recording",
+        stop_prompt="⏹ Stop Recording"
+    )
 
-        audio_segment = AudioSegment.from_file(io.BytesIO(audio_bytes), format="webm")
+    if audio:
+        try:
+            audio_bytes = audio["bytes"]
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-            wav_path = f.name
-            audio_segment.export(wav_path, format="wav")
+            audio_segment = AudioSegment.from_file(
+                io.BytesIO(audio_bytes),
+                format="webm"
+            )
 
-        recognizer = sr.Recognizer()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+                audio_segment.export(f.name, format="wav")
 
-        with sr.AudioFile(wav_path) as source:
-            recognizer.adjust_for_ambient_noise(source)
-            data = recognizer.record(source)
+            r = sr.Recognizer()
 
-        response = recognizer.recognize_google(data, language="en-IN")
+            with sr.AudioFile(f.name) as source:
+                audio_data = r.record(source)
 
-        st.success("Voice converted successfully 🎉")
-        st.info(response)
+            response = r.recognize_google(audio_data)
+            st.success("Voice captured 🎉")
 
-    except Exception as e:
-        st.error(f"Voice error: {e}")
+        except:
+            st.error("Voice error (use text input)")
 
-response = st.text_area("Or type your answer", value=response)
+# fallback always
+response = st.text_area("✍️ Type Answer", value=response)
 
 # ---------------- ANALYSIS ----------------
 def analyze(text):
     blob = TextBlob(text)
-
-    polarity = blob.sentiment.polarity
     words = len(text.split())
-
-    fillers = ["um", "uh", "like", "actually", "basically"]
-    filler_count = sum(text.lower().split().count(w) for w in fillers)
-
-    generic = ["hardworking", "passionate", "team player", "dedicated"]
-    generic_count = sum(text.lower().count(w) for w in generic)
 
     confidence = min(words * 2, 100)
     clarity = min(words * 1.5, 100)
-    relevance = min((abs(polarity) + 0.5) * 100, 100)
-    authenticity = max(100 - (generic_count * 15) - (filler_count * 5), 0)
+    relevance = 80
+    authenticity = max(100 - words, 40)
 
-    return confidence, clarity, relevance, filler_count, authenticity
+    return confidence, clarity, relevance, authenticity
 
-# ---------------- ANALYZE BUTTON ----------------
-if st.button("🚀 Analyze Performance"):
+# ---------------- BUTTON ----------------
+if st.button("🚀 Analyze"):
 
     if response.strip():
 
-        with st.spinner("AI analyzing..."):
-            time.sleep(1.5)
-
-        confidence, clarity, relevance, filler_count, authenticity = analyze(response)
+        confidence, clarity, relevance, authenticity = analyze(response)
 
         c1, c2, c3, c4 = st.columns(4)
 
@@ -254,48 +199,28 @@ if st.button("🚀 Analyze Performance"):
         fig = go.Figure()
         fig.add_trace(go.Scatterpolar(
             r=[confidence, clarity, relevance, authenticity],
-            theta=["Confidence", "Clarity", "Relevance", "Authenticity"],
+            theta=["Confidence","Clarity","Relevance","Authenticity"],
             fill='toself'
         ))
 
-        fig.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-            showlegend=False
-        )
-
         st.plotly_chart(fig, use_container_width=True)
 
-        avg = (confidence + clarity + relevance + authenticity) / 4
+        avg = (confidence + clarity + relevance + authenticity)/4
+
         st.subheader(f"Overall Score: {avg:.1f}%")
         st.progress(int(avg))
 
-        st.markdown("## 🧠 Suggestions")
+        st.subheader("🧠 Suggestions")
 
-        suggestions = []
-
-        if confidence < 50:
-            suggestions.append("Improve confidence")
-
-        if clarity < 50:
-            suggestions.append("Structure your answer")
-
-        if relevance < 60:
-            suggestions.append("Stay relevant")
-
-        if filler_count > 3:
-            suggestions.append("Reduce filler words")
-
-        if authenticity < 60:
-            suggestions.append("Add real examples")
-
+        if confidence < 60:
+            st.warning("Improve confidence")
+        if clarity < 60:
+            st.warning("Structure answers better")
         if len(response.split()) < 20:
-            suggestions.append("Elaborate more")
-
-        if suggestions:
-            for s in suggestions:
-                st.warning("• " + s)
+            st.warning("Elaborate more")
         else:
-            st.success("Excellent response 🚀")
+            st.success("Good response 🚀")
 
     else:
-        st.warning("Please enter or record response")
+        st.warning("Enter answer first")
+        
